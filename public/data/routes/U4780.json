@@ -1,0 +1,37 @@
+{
+  "id": "U4780",
+  "short_name": "478",
+  "long_name": "Bandar Utama - Kwasa Sentral (Demo)",
+  "color": "006CFF",
+  "text_color": "FFFFFF",
+  "directions": {
+    "0": {
+      "trip_id": "mock-trip-1",
+      "shape": [
+        [3.1490, 101.6150],
+        [3.1450, 101.6120],
+        [3.1420, 101.6080],
+        [3.1480, 101.6020],
+        [3.1510, 101.5960],
+        [3.1520, 101.5940],
+        [3.1550, 101.5920],
+        [3.1600, 101.5850],
+        [3.1650, 101.5800],
+        [3.1700, 101.5750],
+        [3.1760, 101.5720]
+      ],
+      "stops": [
+        { "id": "1", "name": "MRT Bandar Utama (Pintu A)", "lat": 3.1490, "lon": 101.6150 },
+        { "id": "2", "name": "Centrepoint Bandar Utama", "lat": 3.1450, "lon": 101.6120 },
+        { "id": "3", "name": "Kolej KDU Damansara", "lat": 3.1420, "lon": 101.6080 },
+        { "id": "4", "name": "Dataran Sunway (Timur)", "lat": 3.1510, "lon": 101.5960 },
+        { "id": "5", "name": "MRT Surian (Pintu A)", "lat": 3.1520, "lon": 101.5940 },
+        { "id": "6", "name": "Palm Spring Damansara", "lat": 3.1550, "lon": 101.5920 },
+        { "id": "7", "name": "Seksyen 6 Kota Damansara", "lat": 3.1600, "lon": 101.5850 },
+        { "id": "8", "name": "Seksyen 8 Kota Damansara", "lat": 3.1650, "lon": 101.5800 },
+        { "id": "9", "name": "Seksyen 10 Kota Damansara", "lat": 3.1700, "lon": 101.5750 },
+        { "id": "10", "name": "MRT Kwasa Sentral", "lat": 3.1760, "lon": 101.5720 }
+      ]
+    }
+  }
+}
