@@ -17,24 +17,24 @@ function deg2rad(deg: number): number {
 
 export interface Bus {
   id: string;
-  trip_id: string;
-  route_id: string;
-  route_short_name: string;
-  route_long_name: string;
+  tripId: string;
+  routeId: string;
+  routeShortName: string;
+  directionId: '0' | '1';
+  headsign: string;
   lat: number;
   lon: number;
   bearing: number;
   speed: number;
   timestamp: number;
-  headsign: string;
 }
 
 export interface Route {
   id: string;
-  short_name: string;
-  long_name: string;
+  shortName: string;
+  longName: string;
   color: string;
-  text_color: string;
+  textColor: string;
 }
 
 export interface Stop {
@@ -42,4 +42,6 @@ export interface Stop {
   name: string;
   lat: number;
   lon: number;
+  sequence?: number;
 }
+

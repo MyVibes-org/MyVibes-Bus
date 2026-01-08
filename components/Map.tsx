@@ -9,13 +9,6 @@ import { Bus, Stop } from '../lib/utils';
 import { useEffect } from 'react';
 
 // Icons
-const busIcon = new L.Icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', // A simple bus icon
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-  popupAnchor: [0, -15],
-});
-
 const stopIcon = new L.Icon({
   iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448833.png', // A simple stop icon
   iconSize: [12, 12],
@@ -28,7 +21,7 @@ const selectedStopIcon = new L.Icon({
   iconSize: [20, 20],
   iconAnchor: [10, 10],
   popupAnchor: [0, -10],
-  className: 'hue-rotate-180' // CSS trick to change color if possible, or just bigger
+  className: 'hue-rotate-180' 
 });
 
 const userIcon = new L.Icon({
@@ -37,6 +30,40 @@ const userIcon = new L.Icon({
     iconAnchor: [15, 15],
     popupAnchor: [0, -15],
 });
+
+// Helper to create rotated bus icon
+const createBusIcon = (bearing: number) => {
+    return L.divIcon({
+        className: 'custom-bus-icon',
+        html: `<div style="transform: rotate(${bearing}deg); width: 30px; height: 30px; display: flex; justify-content: center; align-items: center;">
+            <img src="/icons/bus-top-view.png" style="width: 100%; height: 100%;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3448/3448339.png'" />
+        </div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+    });
+};
+
+// We don't have a top-view bus icon yet, so let's use an emoji or fallback for now
+// Or better: an SVG arrow pointer.
+const createArrowIcon = (bearing: number, routeShortName: string) => {
+    return L.divIcon({
+        className: 'bus-marker',
+        html: `
+            <div class="relative w-8 h-8 flex items-center justify-center">
+                <div style="transform: rotate(${bearing}deg);" class="absolute inset-0 flex items-center justify-center">
+                   <svg width="32" height="32" viewBox="0 0 24 24" fill="#3b82f6" stroke="white" stroke-width="2">
+                      <path d="M12 2L4.5 20.29C4.24 21.03 5.09 21.68 5.76 21.34L12 18.21L18.24 21.34C18.91 21.68 19.76 21.03 19.5 20.29L12 2Z" />
+                   </svg>
+                </div>
+                <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold px-1 rounded shadow-sm border border-white z-10">
+                    ${routeShortName}
+                </span>
+            </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+    });
+};
 
 
 interface MapComponentProps {
@@ -108,11 +135,11 @@ export default function MapComponent({ buses, stops, routeShape, userLocation, s
         <Marker
             key={bus.id}
             position={[bus.lat, bus.lon]}
-            icon={busIcon}
+            icon={createArrowIcon(bus.bearing, bus.routeShortName)}
         >
           <Popup>
-            <strong>{bus.route_short_name}</strong><br />
-            {bus.route_long_name}<br />
+            <strong>Bus {bus.routeShortName}</strong><br />
+            To: {bus.headsign}<br />
             Speed: {bus.speed ? (bus.speed * 3.6).toFixed(1) : 0} km/h
           </Popup>
         </Marker>
