@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { STOPS_478, ROUTE_SHAPE_478 } from '../lib/mockData';
 import { Bus, Stop } from '../lib/utils';
 import RouteTimeline from '../components/RouteTimeline';
 import { estimateETA } from '../lib/routeLogic';
@@ -22,6 +21,7 @@ export default function Home() {
   const [buses, setBuses] = useState<Bus[]>([]);
   const [routes, setRoutes] = useState<RouteInfo[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string>('U4780'); // Default to 478
+  const [routeDetails, setRouteDetails] = useState<any>(null);
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
   const [notificationStopId, setNotificationStopId] = useState<string | null>(null);
   const [lastNotificationTime, setLastNotificationTime] = useState<number>(0);
@@ -32,11 +32,15 @@ export default function Home() {
     fetch('/data/routes.json')
       .then(res => res.json())
       .then(data => {
-        const routesList = Object.values(data) as RouteInfo[];
-        // Ensure 478 is present for the demo
+        // data can be array or object depending on generation script
+        // My script generates Array.
+        const routesList = Array.isArray(data) ? data : Object.values(data) as RouteInfo[];
+
+        // Ensure 478 is present for the demo if not in list
         if (!routesList.find(r => r.id === 'U4780')) {
              routesList.unshift({ id: 'U4780', short_name: '478', long_name: 'Bandar Utama - Kwasa Sentral' });
         }
+
         // Sort by short_name
         routesList.sort((a, b) => a.short_name.localeCompare(b.short_name, undefined, { numeric: true }));
         setRoutes(routesList);
@@ -44,14 +48,30 @@ export default function Home() {
       .catch(err => console.error('Failed to load routes:', err));
   }, []);
 
-  // Determine active stops and shape based on selection
-  const currentStops = useMemo(() => {
-      return selectedRouteId === 'U4780' ? STOPS_478 : [];
+  // Fetch Route Details (Stops/Shape)
+  useEffect(() => {
+    setRouteDetails(null);
+    fetch(`/data/routes/${selectedRouteId}.json`)
+        .then(res => {
+            if (!res.ok) throw new Error('Not found');
+            return res.json();
+        })
+        .then(data => setRouteDetails(data))
+        .catch(err => {
+            console.error('Failed to load route details', err);
+            setRouteDetails(null);
+        });
   }, [selectedRouteId]);
 
+  // Determine active stops and shape based on selection
+  const currentStops = useMemo(() => {
+      // Prefer direction 0, fallback to 1 or empty
+      return routeDetails?.directions?.['0']?.stops || routeDetails?.directions?.['1']?.stops || [];
+  }, [routeDetails]);
+
   const currentShape = useMemo(() => {
-      return selectedRouteId === 'U4780' ? ROUTE_SHAPE_478 : [];
-  }, [selectedRouteId]);
+      return routeDetails?.directions?.['0']?.shape || routeDetails?.directions?.['1']?.shape || [];
+  }, [routeDetails]);
 
   // Fetch Live Buses
   useEffect(() => {
@@ -61,16 +81,12 @@ export default function Home() {
             if (!response.ok) throw new Error('API Failed');
             const data = await response.json();
 
-            // Filter for selected route
-            // API returns object with { buses: [...] } usually, let's check API code
-            // The API returns { buses: [...] } or { error }
             if (data && Array.isArray(data.buses)) {
                  const filtered = data.buses.filter((b: any) => b.route_id === selectedRouteId || b.route_short_name === selectedRouteId);
                  setBuses(filtered);
             }
         } catch (err) {
             console.error('Fetch error:', err);
-            // No fallback to mock data as requested
             setBuses([]);
         }
     };
@@ -86,7 +102,7 @@ export default function Home() {
   useEffect(() => {
     if (!notificationStopId) return;
 
-    const targetStop = currentStops.find(s => s.id === notificationStopId);
+    const targetStop = currentStops.find((s: Stop) => s.id === notificationStopId);
     if (!targetStop) return;
 
     // Find min ETA
@@ -96,7 +112,7 @@ export default function Home() {
         { lat: bus.lat, lon: bus.lon },
         { lat: targetStop.lat, lon: targetStop.lon },
         currentShape,
-        bus.speed ? bus.speed * 3.6 : 0 // handle missing speed
+        bus.speed ? bus.speed * 3.6 : 0
       );
       if (eta !== null && eta < minEta) minEta = eta;
     });
@@ -185,6 +201,22 @@ export default function Home() {
                 <p className="text-blue-100 text-sm truncate">
                     {selectedRouteInfo ? selectedRouteInfo.long_name : 'Select a route'}
                 </p>
+                <div className="flex justify-end">
+                    {/* Tiny Webhook Trigger Button (hidden or discreet) */}
+                    <button
+                        onClick={() => {
+                            if(confirm('Update route data from government source? This takes a while.')) {
+                                fetch('/api/update-routes', { method: 'POST' })
+                                .then(res => res.json())
+                                .then(d => alert(d.message || d.error))
+                                .catch(e => alert('Failed: ' + e));
+                            }
+                        }}
+                        className="text-[10px] text-blue-200 hover:text-white underline"
+                    >
+                        Update Data
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -204,8 +236,7 @@ export default function Home() {
             ) : (
                 <div className="p-8 text-center text-gray-500">
                     <p className="mb-2 text-lg font-semibold">Stops data unavailable</p>
-                    <p className="text-sm">Stop list and route shape are currently only available for Route 478.</p>
-                    <p className="text-sm mt-4">You can still view live bus positions on the map.</p>
+                    <p className="text-sm">Stop list and route shape not found for this route ID.</p>
                 </div>
             )}
         </div>
