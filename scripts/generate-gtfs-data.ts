@@ -90,20 +90,56 @@ async function main() {
       // 2. Extract with JSZip
       const zip = await JSZip.loadAsync(buffer);
 
+
+interface RawRoute {
+  route_id: string;
+  route_short_name: string;
+  route_long_name: string;
+  route_color: string;
+  route_text_color: string;
+}
+
+interface RawTrip {
+  trip_id: string;
+  route_id: string;
+  direction_id: string;
+  trip_headsign: string;
+  shape_id: string;
+}
+
+interface RawStop {
+  stop_id: string;
+  stop_name: string;
+  stop_lat: string;
+  stop_lon: string;
+}
+
+interface RawStopTime {
+  trip_id: string;
+  stop_id: string;
+  stop_sequence: string;
+}
+
+interface RawShape {
+  shape_id: string;
+  shape_pt_lat: string;
+  shape_pt_lon: string;
+}
+
       // Helper to read and parse CSV
-      const readCsv = async (filename: string) => {
+      const readCsv = async <T>(filename: string): Promise<T[]> => {
         const file = zip.file(filename);
         if (!file) return [];
         const text = await file.async('string');
-        return parse(text, { columns: true, skip_empty_lines: true });
+        return parse(text, { columns: true, skip_empty_lines: true }) as T[];
       };
 
       // 3. Parse files
-      const routes = await readCsv('routes.txt');
-      const trips = await readCsv('trips.txt');
-      const stops = await readCsv('stops.txt');
-      const stopTimes = await readCsv('stop_times.txt');
-      const shapes = await readCsv('shapes.txt');
+      const routes = await readCsv<RawRoute>('routes.txt');
+      const trips = await readCsv<RawTrip>('trips.txt');
+      const stops = await readCsv<RawStop>('stops.txt');
+      const stopTimes = await readCsv<RawStopTime>('stop_times.txt');
+      const shapes = await readCsv<RawShape>('shapes.txt');
 
       console.log(`   - Routes: ${routes.length}`);
       console.log(`   - Trips: ${trips.length}`);
