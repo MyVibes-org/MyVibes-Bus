@@ -113,7 +113,7 @@ async function main() {
       for (const r of routes) {
         allRoutes[r.route_id] = {
           id: r.route_id,
-          shortName: r.route_short_name,
+          shortName: r.route_short_name || r.route_long_name,
           longName: r.route_long_name,
           color: r.route_color || '000000',
           textColor: r.route_text_color || 'FFFFFF',
