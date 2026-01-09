@@ -99,7 +99,7 @@ export default function MapComponent({ buses, stops, routeShape, userLocation, s
   const defaultCenter = [3.1390, 101.6869];
 
   return (
-    <MapContainer center={defaultCenter as L.LatLngExpression} zoom={13} style={{ height: '100%', width: '100%' }}>
+    <MapContainer center={defaultCenter as L.LatLngExpression} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
       {/* Google Maps-like Style (CartoDB Voyager) */}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'

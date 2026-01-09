@@ -221,29 +221,27 @@ export default function Home() {
       
       {/* 1. Floating Search Bar (Always Visible) */}
       <div className="hidden md:block absolute top-4 left-4 z-50 w-[400px]">
-          <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-stone-200">
-             <RouteSearch 
-                searchTerm={searchTerm} 
-                onSearchChange={(val) => {
-                    setSearchTerm(val);
-                    setIsSearching(!!val);
-                }}
-             />
-             {isSearching && filteredRoutes.length > 0 && (
-                 <div className="border-t border-stone-100 max-h-[400px] overflow-y-auto rounded-b-xl">
-                     {filteredRoutes.map(r => (
-                         <button
-                            key={r.id}
-                            className="w-full text-left p-3 hover:bg-stone-50 flex items-center gap-3 transition-colors border-b border-stone-50 last:border-0"
-                            onClick={() => handleRouteSelect(r.id)}
-                         >
-                             <span className="font-bold bg-stone-100 text-stone-800 px-2 py-1 rounded text-xs shrink-0">{r.shortName}</span>
-                             <span className="truncate text-sm text-stone-600 font-medium">{r.longName}</span>
-                         </button>
-                     ))}
-                 </div>
-             )}
-          </div>
+          <RouteSearch 
+            searchTerm={searchTerm} 
+            onSearchChange={(val) => {
+                setSearchTerm(val);
+                setIsSearching(!!val);
+            }}
+          />
+           {isSearching && filteredRoutes.length > 0 && (
+               <div className="bg-white rounded-xl shadow-lg border border-stone-100 max-h-[400px] overflow-y-auto mt-2">
+                   {filteredRoutes.map(r => (
+                       <button
+                          key={r.id}
+                          className="w-full text-left p-3 hover:bg-stone-50 flex items-center gap-3 transition-colors border-b border-stone-50 last:border-0"
+                          onClick={() => handleRouteSelect(r.id)}
+                       >
+                           <span className="font-bold bg-stone-100 text-stone-800 px-2 py-1 rounded text-xs shrink-0">{r.shortName}</span>
+                           <span className="truncate text-sm text-stone-600 font-medium">{r.longName}</span>
+                       </button>
+                   ))}
+               </div>
+           )}
       </div>
 
       {/* 2. Sidebar Content (Only if route selected) */}
@@ -267,9 +265,9 @@ export default function Home() {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto relative bg-white">
+            <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
                {activeTab === 'routes' ? (
-                   <div className="flex flex-col min-h-full">
+                   <>
                       <RouteDirectionPicker 
                           routes={routes}
                           selectedRouteId={selectedRouteId}
@@ -278,7 +276,7 @@ export default function Home() {
                           onDirectionChange={setSelectedDirectionId}
                           routeDetails={routeDetails}
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden">
                           {currentStops.length > 0 ? (
                               <RouteTimeline
                                   stops={currentStops}
@@ -298,9 +296,11 @@ export default function Home() {
                               </div>
                           )}
                       </div>
-                   </div>
+                   </>
                ) : (
-                   <AlertsPanel />
+                   <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                       <AlertsPanel />
+                   </div>
                )}
             </div>
         </div>

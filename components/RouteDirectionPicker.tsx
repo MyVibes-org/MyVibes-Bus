@@ -40,19 +40,19 @@ export default function RouteDirectionPicker({
 
   return (
 
-    <div className="p-4 bg-white border-b border-stone-200 shrink-0 sticky top-0 z-10">
+    <div className="p-4 bg-white border-b border-stone-200 shrink-0 sticky top-0 z-20 md:static md:z-auto">
       <div className="flex flex-col gap-3">
         {/* Header & Route Selector */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2 flex-1">
-             <div className="bg-stone-900 text-white font-bold px-2 py-1 rounded text-lg">
+             <div className="bg-stone-900 text-white font-bold px-2 py-1 rounded text-lg shrink-0">
                 {selectedRoute ? selectedRoute.shortName : '...'}
              </div>
              <p className="font-bold text-stone-800 text-lg leading-tight truncate">
                 {selectedRoute ? selectedRoute.longName : 'Select a route'}
              </p>
           </div>
-          <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">
+          <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold animate-pulse shrink-0 ml-2">
             LIVE
           </span>
         </div>
