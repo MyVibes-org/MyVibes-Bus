@@ -10,7 +10,7 @@ interface Props {
 
 export default function BottomSheet({ children, activeTab, onTabChange }: Props) {
   // Use snap points: 0.15 (collapsed/slight), 0.45 (half), 0.95 (full)
-  const [snap, setSnap] = useState<number | string | null>(0.45);
+  const [snap, setSnap] = useState<number | string | null>(0.15);
 
   return (
     <div className="md:hidden"> 
