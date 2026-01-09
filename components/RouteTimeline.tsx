@@ -1,7 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { Stop, Bus } from '../lib/utils';
 import { estimateETA } from '../lib/routeLogic';
+import { useAlerts } from '../hooks/useAlerts';
+import AlertDialog from './AlertDialog';
+import { Bell, BellRing } from 'lucide-react';
 
 interface RouteTimelineProps {
   stops: Stop[];
@@ -9,8 +13,10 @@ interface RouteTimelineProps {
   routeShape: [number, number][];
   selectedStop: Stop | null;
   onStopSelect: (stop: Stop) => void;
-  alerts: Record<string, number>;
-  onToggleNotification: (stop: Stop) => void;
+  routeId: string;
+  routeShortName: string;
+  directionId: '0' | '1';
+  headsign: string;
 }
 
 export default function RouteTimeline({
@@ -19,89 +25,121 @@ export default function RouteTimeline({
   routeShape,
   selectedStop,
   onStopSelect,
-  alerts,
-  onToggleNotification
+  routeId,
+  routeShortName,
+  directionId,
+  headsign
 }: RouteTimelineProps) {
+  const { addNewAlert, alerts } = useAlerts();
+  const [alertStop, setAlertStop] = useState<Stop | null>(null);
+  const [minutesBefore, setMinutesBefore] = useState(5);
+
+  const activeAlerts = alerts.filter(a => a.status === 'active');
+
+  const handleAddAlert = () => {
+    if (!alertStop) return;
+    
+    addNewAlert({
+      routeId,
+      routeShortName,
+      directionId,
+      headsign,
+      stopId: alertStop.id,
+      stopName: alertStop.name,
+      minutesBefore
+    });
+    setAlertStop(null);
+  };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <div className="relative pl-4 py-4 space-y-6 flex-1 overflow-y-auto">
-      {/* Vertical Line */}
-      <div className="absolute left-[27px] top-4 bottom-4 w-1 bg-blue-200 z-0"></div>
+        {/* Vertical Line */}
+        <div className="absolute left-[27px] top-4 bottom-4 w-1 bg-stone-300 z-0"></div>
 
-      {stops.map((stop, index) => {
-        // Find nearest ETA from any bus
-        let minEta = Infinity;
-        // let approachingBus = null;
+        {stops.map((stop) => {
+          // Find nearest ETA from any bus
+          let minEta = Infinity;
 
-        buses.forEach(bus => {
-          const eta = estimateETA(
-            { lat: bus.lat, lon: bus.lon },
-            { lat: stop.lat, lon: stop.lon },
-            routeShape,
-            bus.speed * 3.6 // convert m/s to km/h
+          buses.forEach(bus => {
+            const eta = estimateETA(
+              { lat: bus.lat, lon: bus.lon },
+              { lat: stop.lat, lon: stop.lon },
+              routeShape,
+              bus.speed * 3.6 // convert m/s to km/h
+            );
+            if (eta !== null && eta < minEta) {
+              minEta = eta;
+            }
+          });
+
+          const etaText = minEta === Infinity
+            ? 'Departed'
+            : minEta < 1
+              ? 'Arriving'
+              : `${Math.ceil(minEta)} min`;
+
+          const isPassed = minEta === Infinity;
+          const isSelected = selectedStop?.id === stop.id;
+          
+          // Check if an alert exists for this stop and this route/direction
+          const hasAlert = activeAlerts.some(a => 
+            a.stopId === stop.id && 
+            a.routeId === routeId && 
+            a.directionId === directionId
           );
-          if (eta !== null && eta < minEta) {
-            minEta = eta;
-            // approachingBus = bus;
-          }
-        });
 
-        const etaText = minEta === Infinity
-          ? 'Departed'
-          : minEta < 1
-            ? 'Arriving'
-            : `${Math.ceil(minEta)} min`;
+          return (
+            <div
+              key={stop.id}
+              className={`relative z-10 flex items-start cursor-pointer transition-opacity ${isPassed ? 'opacity-50' : 'opacity-100'}`}
+              onClick={() => onStopSelect(stop)}
+            >
+              {/* Dot */}
+              <div className={`w-6 h-6 rounded-full border-4 shrink-0 mr-4 bg-white transition-all ${isSelected ? 'border-amber-600 scale-110 shadow-lg' : 'border-stone-400'}`}></div>
 
-        const isPassed = minEta === Infinity;
-        const isSelected = selectedStop?.id === stop.id;
-        const isNotifying = !!alerts[stop.id];
-        const threshold = alerts[stop.id];
+              <div className={`flex-1 p-3 rounded-lg shadow-sm border transition-colors ${isSelected ? 'bg-amber-50 border-amber-200' : 'bg-white border-stone-100 hover:border-amber-200'}`}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold text-stone-800">{stop.name}</h3>
+                    <p className={`text-sm font-medium ${isPassed ? 'text-stone-400' : 'text-green-700'}`}>
+                      {etaText}
+                    </p>
+                  </div>
 
-        return (
-          <div
-            key={stop.id}
-            className={`relative z-10 flex items-start cursor-pointer transition-opacity ${isPassed ? 'opacity-50' : 'opacity-100'}`}
-            onClick={() => onStopSelect(stop)}
-          >
-            {/* Dot */}
-            <div className={`w-6 h-6 rounded-full border-4 flex-shrink-0 mr-4 bg-white transition-all ${isSelected ? 'border-blue-600 scale-110' : 'border-blue-400'}`}></div>
-
-            <div className={`flex-1 p-3 rounded-lg shadow-sm border transition-colors ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100'}`}>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold text-gray-800">{stop.name}</h3>
-                  <p className={`text-sm font-medium ${isPassed ? 'text-gray-400' : 'text-green-600'}`}>
-                    {etaText}
-                  </p>
-                  {isNotifying && (
-                      <p className="text-xs text-blue-500 mt-1">
-                          Alert: {threshold}m
-                      </p>
+                  {/* Alert Button */}
+                  {!hasAlert && (
+                      <button
+                          onClick={(e) => {
+                              e.stopPropagation();
+                              setAlertStop(stop);
+                          }}
+                          className="p-2 text-stone-300 hover:text-amber-600 transition-colors"
+                          title="Set Alert"
+                      >
+                         <Bell className="w-5 h-5" />
+                      </button>
+                  )}
+                  {hasAlert && (
+                      <span className="text-amber-500 p-2" title="Alert Active"><BellRing className="w-5 h-5 fill-current" /></span>
                   )}
                 </div>
-
-                {/* Notification Button */}
-                {!isPassed && (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleNotification(stop);
-                        }}
-                        className={`p-2 rounded-full transition-colors ${isNotifying ? 'bg-blue-100 text-blue-600' : 'text-gray-300 hover:text-gray-500'}`}
-                        title={isNotifying ? `Alert set for ${threshold} mins` : "Set alert"}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill={isNotifying ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-                        </svg>
-                    </button>
-                )}
               </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      {/* Alert Dialog */}
+      {alertStop && (
+        <AlertDialog
+          stopName={alertStop.name}
+          minutesBefore={minutesBefore}
+          onMinutesChange={setMinutesBefore}
+          onConfirm={handleAddAlert}
+          onCancel={() => setAlertStop(null)}
+        />
+      )}
     </div>
   );
 }
