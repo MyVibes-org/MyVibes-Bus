@@ -23,9 +23,11 @@ export default function Home() {
   const [selectedRouteId, setSelectedRouteId] = useState<string>('U4780'); // Default to 478
   const [routeDetails, setRouteDetails] = useState<any>(null);
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
-  const [notificationStopId, setNotificationStopId] = useState<string | null>(null);
-  const [lastNotificationTime, setLastNotificationTime] = useState<number>(0);
-  const [notificationThreshold, setNotificationThreshold] = useState<number>(5);
+
+  // New notification state
+  // alerts: stopId -> threshold (minutes)
+  const [alerts, setAlerts] = useState<Record<string, number>>({});
+  const [lastNotificationTimes, setLastNotificationTimes] = useState<Record<string, number>>({});
 
   // Load Routes List
   useEffect(() => {
@@ -100,54 +102,100 @@ export default function Home() {
 
   // Notification Logic
   useEffect(() => {
-    if (!notificationStopId) return;
+    if (Object.keys(alerts).length === 0) return;
 
-    const targetStop = currentStops.find((s: Stop) => s.id === notificationStopId);
-    if (!targetStop) return;
+    const now = Date.now();
+    const newLastNotificationTimes = { ...lastNotificationTimes };
+    let updated = false;
 
-    // Find min ETA
-    let minEta = Infinity;
-    buses.forEach(bus => {
-      const eta = estimateETA(
-        { lat: bus.lat, lon: bus.lon },
-        { lat: targetStop.lat, lon: targetStop.lon },
-        currentShape,
-        bus.speed ? bus.speed * 3.6 : 0
-      );
-      if (eta !== null && eta < minEta) minEta = eta;
+    Object.entries(alerts).forEach(([stopId, threshold]) => {
+      const targetStop = currentStops.find((s: Stop) => s.id === stopId);
+      if (!targetStop) return;
+
+      // Find min ETA and verify direction
+      let minEta = Infinity;
+
+      buses.forEach(bus => {
+        const eta = estimateETA(
+          { lat: bus.lat, lon: bus.lon },
+          { lat: targetStop.lat, lon: targetStop.lon },
+          currentShape,
+          bus.speed ? bus.speed * 3.6 : 0
+        );
+
+        if (eta !== null && eta < minEta) {
+           // Direction Check
+           // Calculate bearing of route near bus (simplification: bearing to stop)
+
+           const dLon = (targetStop.lon - bus.lon);
+           const y = Math.sin(dLon * Math.PI / 180) * Math.cos(targetStop.lat * Math.PI / 180);
+           const x = Math.cos(bus.lat * Math.PI / 180) * Math.sin(targetStop.lat * Math.PI / 180) -
+                     Math.sin(bus.lat * Math.PI / 180) * Math.cos(targetStop.lat * Math.PI / 180) * Math.cos(dLon * Math.PI / 180);
+           let brng = Math.atan2(y, x) * 180 / Math.PI;
+           brng = (brng + 360) % 360; // Bearing from bus to stop
+
+           let diff = Math.abs(bus.bearing - brng);
+           if (diff > 180) diff = 360 - diff;
+
+           // If angle is less than 90, we are generally facing the stop.
+           if (diff < 90) {
+               minEta = eta;
+           }
+        }
+      });
+
+      // Trigger Notification
+      if (minEta < threshold && minEta > 0) {
+          if (!lastNotificationTimes[stopId] || now - lastNotificationTimes[stopId] > threshold * 60 * 1000) {
+              if (Notification.permission === 'granted') {
+                  const routeName = selectedRouteId === 'U4780' ? '400' : (routes.find(r => r.id === selectedRouteId)?.short_name || selectedRouteId);
+                  new Notification(`Bus Arriving!`, {
+                      body: `Bus ${routeName} is ~${Math.ceil(minEta)} mins from ${targetStop.name}`,
+                  });
+                  newLastNotificationTimes[stopId] = now;
+                  updated = true;
+              }
+          }
+      }
     });
 
-    // Trigger Notification
-    if (minEta < notificationThreshold && minEta > 0) {
-        const now = Date.now();
-        if (now - lastNotificationTime > notificationThreshold * 60 * 1000) {
-            if (Notification.permission === 'granted') {
-                new Notification(`Bus Arriving Soon!`, {
-                    body: `Route ${selectedRouteId === 'U4780' ? '478' : selectedRouteId} is ${Math.ceil(minEta)} mins away from ${targetStop.name}`,
-                });
-                setLastNotificationTime(now);
-            }
-        }
+    if (updated) {
+        setLastNotificationTimes(newLastNotificationTimes);
     }
 
-  }, [buses, notificationStopId, lastNotificationTime, currentStops, currentShape, notificationThreshold, selectedRouteId]);
+  }, [buses, alerts, lastNotificationTimes, currentStops, currentShape, selectedRouteId, routes]);
 
-  // Request Notification Permission
+  // Request Notification Permission and Add Alert
   const toggleNotification = (stop: Stop) => {
-    if (notificationStopId === stop.id) {
-        setNotificationStopId(null);
+    if (alerts[stop.id]) {
+        // Remove alert
+        const newAlerts = { ...alerts };
+        delete newAlerts[stop.id];
+        setAlerts(newAlerts);
     } else {
+        // Add alert
         if (!('Notification' in window)) {
             alert('This browser does not support desktop notifications');
             return;
         }
 
+        const addAlert = () => {
+             const minutes = window.prompt(`Notify how many minutes before arrival at ${stop.name}?`, "5");
+             if (minutes === null) return;
+             const threshold = parseInt(minutes);
+             if (isNaN(threshold) || threshold <= 0) {
+                 alert("Please enter a valid number of minutes.");
+                 return;
+             }
+             setAlerts(prev => ({ ...prev, [stop.id]: threshold }));
+        };
+
         if (Notification.permission === 'granted') {
-            setNotificationStopId(stop.id);
+            addAlert();
         } else if (Notification.permission !== 'denied') {
             Notification.requestPermission().then(permission => {
                 if (permission === 'granted') {
-                    setNotificationStopId(stop.id);
+                    addAlert();
                 }
             });
         } else {
@@ -185,7 +233,6 @@ export default function Home() {
                             onChange={(e) => {
                                 setSelectedRouteId(e.target.value);
                                 setSelectedStop(null);
-                                setNotificationStopId(null);
                             }}
                             className="text-black text-sm rounded px-2 py-1 max-w-[150px]"
                         >
@@ -201,22 +248,6 @@ export default function Home() {
                 <p className="text-blue-100 text-sm truncate">
                     {selectedRouteInfo ? selectedRouteInfo.long_name : 'Select a route'}
                 </p>
-                <div className="flex justify-end">
-                    {/* Tiny Webhook Trigger Button (hidden or discreet) */}
-                    <button
-                        onClick={() => {
-                            if(confirm('Update route data from government source? This takes a while.')) {
-                                fetch('/api/update-routes', { method: 'POST' })
-                                .then(res => res.json())
-                                .then(d => alert(d.message || d.error))
-                                .catch(e => alert('Failed: ' + e));
-                            }
-                        }}
-                        className="text-[10px] text-blue-200 hover:text-white underline"
-                    >
-                        Update Data
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -228,10 +259,8 @@ export default function Home() {
                     routeShape={currentShape}
                     selectedStop={selectedStop}
                     onStopSelect={setSelectedStop}
-                    notificationEnabledStopId={notificationStopId}
+                    alerts={alerts}
                     onToggleNotification={toggleNotification}
-                    notificationThreshold={notificationThreshold}
-                    onThresholdChange={setNotificationThreshold}
                 />
             ) : (
                 <div className="p-8 text-center text-gray-500">

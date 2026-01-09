@@ -7,7 +7,13 @@ const execPromise = util.promisify(exec);
 
 export async function POST(request: Request) {
   try {
-    // Check for secret/auth if needed, but skipping for now as not requested
+    const { searchParams } = new URL(request.url);
+    const secret = searchParams.get('secret');
+
+    // Simple secret check - ideally this should be an env var
+    if (secret !== 'my-secret-admin-key') {
+       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
 
     const scriptDir = path.join(process.cwd(), 'scripts');
 
