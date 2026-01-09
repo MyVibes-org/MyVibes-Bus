@@ -55,7 +55,7 @@ export default function RouteTimeline({
     <div className="flex flex-col h-full relative">
       <div className="relative pl-4 py-4 space-y-6 flex-1 overflow-y-auto">
         {/* Vertical Line */}
-        <div className="absolute left-[27px] top-4 bottom-4 w-1 bg-blue-200 z-0"></div>
+        <div className="absolute left-[27px] top-4 bottom-4 w-1 bg-stone-300 z-0"></div>
 
         {stops.map((stop) => {
           // Find nearest ETA from any bus
@@ -96,13 +96,13 @@ export default function RouteTimeline({
               onClick={() => onStopSelect(stop)}
             >
               {/* Dot */}
-              <div className={`w-6 h-6 rounded-full border-4 flex-shrink-0 mr-4 bg-white transition-all ${isSelected ? 'border-blue-600 scale-110' : 'border-blue-400'}`}></div>
+              <div className={`w-6 h-6 rounded-full border-4 shrink-0 mr-4 bg-white transition-all ${isSelected ? 'border-amber-600 scale-110 shadow-lg' : 'border-stone-400'}`}></div>
 
-              <div className={`flex-1 p-3 rounded-lg shadow-sm border transition-colors ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100'}`}>
+              <div className={`flex-1 p-3 rounded-lg shadow-sm border transition-colors ${isSelected ? 'bg-amber-50 border-amber-200' : 'bg-white border-stone-100 hover:border-amber-200'}`}>
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-semibold text-gray-800">{stop.name}</h3>
-                    <p className={`text-sm font-medium ${isPassed ? 'text-gray-400' : 'text-green-600'}`}>
+                    <h3 className="font-semibold text-stone-800">{stop.name}</h3>
+                    <p className={`text-sm font-medium ${isPassed ? 'text-stone-400' : 'text-green-700'}`}>
                       {etaText}
                     </p>
                   </div>
@@ -114,14 +114,14 @@ export default function RouteTimeline({
                               e.stopPropagation();
                               setAlertStop(stop);
                           }}
-                          className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
+                          className="p-2 text-stone-300 hover:text-amber-600 transition-colors"
                           title="Set Alert"
                       >
                          <Bell className="w-5 h-5" />
                       </button>
                   )}
                   {hasAlert && (
-                      <span className="text-yellow-500 p-2" title="Alert Active"><BellRing className="w-5 h-5 fill-current" /></span>
+                      <span className="text-amber-500 p-2" title="Alert Active"><BellRing className="w-5 h-5 fill-current" /></span>
                   )}
                 </div>
               </div>
