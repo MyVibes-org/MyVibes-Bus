@@ -1,5 +1,5 @@
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface Props {
   stopName: string;
@@ -16,8 +16,17 @@ export default function AlertDialog({
   onConfirm,
   onCancel
 }: Props) {
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm animate-in fade-in zoom-in duration-200">
         <h3 className="font-bold text-lg mb-2">Set Alert</h3>
         <p className="text-gray-600 text-sm mb-4">
@@ -53,6 +62,7 @@ export default function AlertDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

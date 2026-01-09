@@ -5,6 +5,7 @@ import { Stop, Bus } from '../lib/utils';
 import { estimateETA } from '../lib/routeLogic';
 import { useAlerts } from '../hooks/useAlerts';
 import AlertDialog from './AlertDialog';
+import { Bell, BellRing } from 'lucide-react';
 
 interface RouteTimelineProps {
   stops: Stop[];
@@ -107,7 +108,7 @@ export default function RouteTimeline({
                   </div>
 
                   {/* Alert Button */}
-                  {!isPassed && !hasAlert && (
+                  {!hasAlert && (
                       <button
                           onClick={(e) => {
                               e.stopPropagation();
@@ -116,11 +117,11 @@ export default function RouteTimeline({
                           className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
                           title="Set Alert"
                       >
-                         🔔
+                         <Bell className="w-5 h-5" />
                       </button>
                   )}
                   {hasAlert && (
-                      <span className="text-yellow-500 p-2" title="Alert Active">🔔</span>
+                      <span className="text-yellow-500 p-2" title="Alert Active"><BellRing className="w-5 h-5 fill-current" /></span>
                   )}
                 </div>
               </div>
