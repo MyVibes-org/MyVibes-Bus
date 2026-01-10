@@ -130,8 +130,8 @@ interface RawShape {
       const readCsv = async <T>(filename: string): Promise<T[]> => {
         const file = zip.file(filename);
         if (!file) return [];
-        const text = await file.async('string');
-        return parse(text, { columns: true, skip_empty_lines: true }) as T[];
+        const text = await file.async('string')/*  */;
+        return parse(text, { columns: true, skip_empty_lines: true, trim: true }) as T[];
       };
 
       // 3. Parse files
@@ -291,7 +291,7 @@ interface RawShape {
     JSON.stringify(allStops)
   );
 
-  console.log('✅ GTFS data generation complete!');
+  console.log('GTFS data generation complete!');
 }
 
 main();
