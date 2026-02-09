@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "../components/ServiceWorkerRegister";
 
+import ErrorBoundary from "../components/ErrorBoundary";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -22,8 +24,10 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
       </head>
       <body className={inter.className}>
-        <ServiceWorkerRegister />
-        {children}
+        <ErrorBoundary>
+          <ServiceWorkerRegister />
+          {children}
+        </ErrorBoundary>
       </body>
     </html>
   );

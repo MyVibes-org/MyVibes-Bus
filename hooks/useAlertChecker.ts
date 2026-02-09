@@ -1,13 +1,8 @@
 
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAlerts } from './useAlerts';
 import { Bus, Stop } from '../lib/utils';
 import { estimateETA } from '../lib/routeLogic';
-
-// We need to know the shape for the alert's route/direction.
-// In this implementation, we assume we only check alerts for the CURRENTLY active route context
-// provided via routeDetails. 
-// If we wanted to support background alerts for other routes, we'd need to fetch their shapes.
 
 interface RouteDetail {
   id: string;
@@ -19,19 +14,61 @@ interface RouteDetail {
   };
 }
 
-export function useAlertChecker(buses: Bus[], routeDetails: RouteDetail | null) {
+export function useAlertChecker(buses: Bus[], currentRouteDetails: RouteDetail | null) {
   const { alerts, triggerAlert } = useAlerts();
-  
+  const [cachedRoutes, setCachedRoutes] = useState<Record<string, RouteDetail>>({});
+  const processingRef = useRef(false);
+
+  // Sync current route details to cache
   useEffect(() => {
-    if (!routeDetails || !buses.length) return;
+    if (currentRouteDetails) {
+      setCachedRoutes(prev => ({
+        ...prev,
+        [currentRouteDetails.id]: currentRouteDetails
+      }));
+    }
+  }, [currentRouteDetails]);
+
+  // Fetch missing routes for active alerts
+  useEffect(() => {
+    const activeAlerts = alerts.filter(a => a.status === 'active');
+    // Identify routes we need but don't have
+    const neededRoutes = new Set(activeAlerts.map(a => a.routeId));
+    
+    // Also exclude current route as we already have it (or it will sync)
+    if (currentRouteDetails) {
+        neededRoutes.delete(currentRouteDetails.id);
+    }
+
+    neededRoutes.forEach(routeId => {
+      if (!cachedRoutes[routeId]) {
+        fetch(`/data/routes/${routeId}.json`)
+          .then(res => {
+              if (!res.ok) throw new Error('Route not found');
+              return res.json();
+          })
+          .then(data => {
+            if (data) {
+              setCachedRoutes(prev => ({ ...prev, [routeId]: data }));
+            }
+          })
+          .catch(err => console.error(`Failed to fetch route ${routeId} for alerts`, err));
+      }
+    });
+  }, [alerts, cachedRoutes, currentRouteDetails]);
+
+  useEffect(() => {
+    if (processingRef.current || !buses.length) return;
+    processingRef.current = true;
 
     const activeAlerts = alerts.filter(a => a.status === 'active');
     
     for (const alert of activeAlerts) {
-      // 1. Check if this alert belongs to the current route (optimization)
-      if (alert.routeId !== routeDetails.id) continue;
+      // Get route details from cache (or current)
+      const routeData = cachedRoutes[alert.routeId] || (currentRouteDetails?.id === alert.routeId ? currentRouteDetails : null);
+      if (!routeData) continue;
 
-      // 2. Find buses matching this alert's route AND direction
+      // Find buses matching this alert's route AND direction
       const matchingBuses = buses.filter(b => 
         (b.routeId === alert.routeId || b.routeShortName === alert.routeShortName) && 
         b.directionId === alert.directionId
@@ -39,41 +76,45 @@ export function useAlertChecker(buses: Bus[], routeDetails: RouteDetail | null) 
       
       if (matchingBuses.length === 0) continue;
       
-      // 3. Get the stop and route shape for this direction
-      const direction = routeDetails.directions[alert.directionId];
+      const direction = routeData.directions[alert.directionId];
       if (!direction) continue;
       
       const targetStop = direction.stops.find(s => s.id === alert.stopId);
       if (!targetStop) continue;
 
-      // 4. Calculate ETA for each matching bus
       for (const bus of matchingBuses) {
         const eta = estimateETA(
           { lat: bus.lat, lon: bus.lon },
           { lat: targetStop.lat, lon: targetStop.lon },
           direction.shape,
-          bus.speed * 3.6 // m/s to km/h
+          bus.speed * 3.6 
         );
         
         // Check if ETA matches the alert threshold (with 1 min buffer/window)
-        // We trigger if ETA is less than threshold but positive
+        // We trigger if ETA is less than threshold but positive (or slightly negative if "arriving")
         if (eta !== null && eta <= alert.minutesBefore && eta > -0.5) {
           triggerNotification(alert, eta);
-          triggerAlert(alert.id); // Mark as triggered so we don't spam
+          triggerAlert(alert.id); 
           break; // One notification per alert is enough
         }
       }
     }
-  }, [buses, alerts, routeDetails, triggerAlert]);
+    
+    processingRef.current = false;
+  }, [buses, alerts, cachedRoutes, currentRouteDetails, triggerAlert]);
 }
 
 function triggerNotification(alert: any, eta: number) {
   if (!('Notification' in window)) return;
   
+  const title = `Bus ${alert.routeShortName} Arriving!`;
+  const body = `${Math.ceil(eta)} min to ${alert.stopName}\nHeading: ${alert.headsign}`;
+  
   if (Notification.permission === 'granted') {
-    new Notification(`Bus ${alert.routeShortName} Arriving!`, {
-      body: `${Math.ceil(eta)} min to ${alert.stopName}\nHeading: ${alert.headsign}`,
-      tag: alert.id, // Prevents duplicate notifications
+    new Notification(title, {
+      body,
+      tag: alert.id,
+      icon: '/favicon.ico', // Optional: Add an icon if available
     });
   }
 }

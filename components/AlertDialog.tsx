@@ -26,18 +26,25 @@ export default function AlertDialog({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="alert-dialog-title"
+      aria-describedby="alert-dialog-description"
+    >
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm animate-in fade-in zoom-in duration-200">
-        <h3 className="font-bold text-lg mb-2">Set Alert</h3>
-        <p className="text-stone-600 text-sm mb-4">
+        <h3 id="alert-dialog-title" className="font-bold text-lg mb-2">Set Alert</h3>
+        <p id="alert-dialog-description" className="text-stone-600 text-sm mb-4">
           Get notified when bus arrives at <span className="font-semibold text-amber-700">{stopName}</span>
         </p>
 
-        <label className="block text-sm font-medium text-stone-700 mb-2">
+        <label htmlFor="minutes-input" className="block text-sm font-medium text-stone-700 mb-2">
           Notify me {minutesBefore} minutes before
         </label>
         
         <input
+          id="minutes-input"
           type="range"
           min="1"
           max="20"
@@ -45,8 +52,12 @@ export default function AlertDialog({
           value={minutesBefore}
           onChange={(e) => onMinutesChange(parseInt(e.target.value))}
           className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer mb-6 accent-amber-600"
+          aria-valuemin={1}
+          aria-valuemax={20}
+          aria-valuenow={minutesBefore}
         />
 
+        <div className="flex gap-4">
           <button
             onClick={onCancel}
             className="flex-1 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg font-medium hover:bg-stone-200 transition-colors"
@@ -59,6 +70,7 @@ export default function AlertDialog({
           >
             Set Alert
           </button>
+        </div>
       </div>
     </div>,
     document.body
