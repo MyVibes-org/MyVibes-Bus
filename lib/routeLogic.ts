@@ -65,40 +65,71 @@ export function getShapeLength(shape: [number, number][]): number {
     return length;
 }
 
+/**
+ * Estimates the ETA (in minutes) for a bus to reach a stop.
+ * 
+ * For loop/circular routes, when the bus is past the stop, it calculates
+ * the wrap-around distance: (totalShapeLength - busDist) + stopDist
+ * 
+ * @param busLocation - Current bus GPS coordinates
+ * @param stopLocation - Target stop GPS coordinates  
+ * @param shape - Route shape as array of [lat, lon] points
+ * @param speedKmH - Average bus speed in km/h (default: 30)
+ * @param isLoop - Whether route is circular/loop (default: true)
+ * @returns Minutes until arrival, 0 if arriving (< 50m), or null if bus has passed (linear routes only)
+ */
 export function estimateETA(
   busLocation: Point,
   stopLocation: Point,
   shape: [number, number][],
-  speedKmH: number = 30
+  speedKmH: number = 30,
+  isLoop: boolean = true
 ): number | null {
+  // Edge case: empty or single-point shapes
+  if (!shape || shape.length < 2) {
+    return null;
+  }
+
+  // Edge case: invalid speed
+  if (speedKmH <= 0) {
+    speedKmH = 30; // fallback to default
+  }
+
   const busDist = getDistanceAlongRoute(busLocation, shape);
   const stopDist = getDistanceAlongRoute(stopLocation, shape);
   
   const totalLength = getShapeLength(shape);
   
-  // Check if circular (start and end within 200m)
-  const isCircular = getDistanceFromLatLonInKm(
-      shape[0][0], shape[0][1],
-      shape[shape.length-1][0], shape[shape.length-1][1]
-  ) < 0.2;
+  // Edge case: invalid shape length
+  if (totalLength <= 0) {
+    return null;
+  }
 
-  let distDiff = stopDist - busDist;
+  let distanceRemaining = stopDist - busDist;
 
-  // Buffer of 50m (0.05km) before considering it "passed"
-  if (distDiff < -0.05) {
-      if (isCircular) {
-          // If circular, assume wrap-around
-          distDiff += totalLength;
+  // Minimum distance threshold: 50m (0.05km)
+  // If bus is within 50m of the stop, return 0 (UI can show "Arriving")
+  const ARRIVING_THRESHOLD_KM = 0.05;
+
+  // Check if bus has passed the stop (stopDist < busDist)
+  if (distanceRemaining < -ARRIVING_THRESHOLD_KM) {
+      if (isLoop) {
+          // Loop/circular route: calculate wrap-around distance
+          // Distance = (distance remaining to end of route) + (distance from start to stop)
+          // Which simplifies to: (totalLength - busDist) + stopDist
+          distanceRemaining = (totalLength - busDist) + stopDist;
       } else {
-          // Linear route, bus has passed
+          // Linear route: bus has passed the stop, no valid ETA
           return null;
       }
   }
 
-  // If within the buffer (e.g. -0.02), treat as 0 (at stop)
-  if (distDiff < 0) distDiff = 0;
+  // If bus is within the arriving threshold or slightly behind due to GPS variance
+  if (distanceRemaining < ARRIVING_THRESHOLD_KM) {
+    distanceRemaining = 0;
+  }
 
-  const timeHours = distDiff / speedKmH;
+  const timeHours = distanceRemaining / speedKmH;
   const timeMinutes = timeHours * 60;
 
   return timeMinutes;
