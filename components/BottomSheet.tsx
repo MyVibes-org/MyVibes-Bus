@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Drawer, DrawerContent } from './ui/drawer';
+import { Drawer, DrawerContent, DrawerTitle, DrawerDescription } from './ui/drawer';
 
 interface Props {
   children: React.ReactNode;
@@ -23,6 +23,12 @@ export default function BottomSheet({ children, activeTab, onTabChange }: Props)
         dismissible={false}
       >
         <DrawerContent className="md:hidden h-full max-h-[96vh] border-stone-200 bg-white/95 backdrop-blur-sm shadow-xl pb-safe">
+            {/* Accessibility */}
+            <DrawerTitle className="sr-only">Bus Route Navigation</DrawerTitle>
+            <DrawerDescription className="sr-only">
+              {activeTab === 'routes' ? 'Search and view bus routes' : 'View active bus arrival alerts'}
+            </DrawerDescription>
+            
             {/* Header / Tabs */}
             <div className="px-4 py-2 flex gap-2 border-b border-stone-100 shrink-0">
                 <button

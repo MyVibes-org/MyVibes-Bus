@@ -7,9 +7,7 @@ export function getDistanceAlongRoute(point: Point, shape: [number, number][]): 
   if (shape.length < 2) return 0;
 
   let minDistanceToShape = Infinity;
-  let distanceAlongShape = 0;
   let bestCumulativeDistance = 0;
-
   let currentCumulativeDistance = 0;
 
   for (let i = 0; i < shape.length - 1; i++) {
@@ -19,10 +17,14 @@ export function getDistanceAlongRoute(point: Point, shape: [number, number][]): 
     const segmentLength = getDistanceFromLatLonInKm(start.lat, start.lon, end.lat, end.lon);
 
     // Project point onto segment
-    const { projectedPoint, fraction } = projectPointOnSegment(point, start, end);
+    const { fraction } = projectPointOnSegment(point, start, end);
+    
+    // Calculate actual projected point for accurate distance to segment
+    const projectedLat = start.lat + fraction * (end.lat - start.lat);
+    const projectedLon = start.lon + fraction * (end.lon - start.lon);
 
     // Distance from point to the line segment
-    const distToSegment = getDistanceFromLatLonInKm(point.lat, point.lon, projectedPoint.lat, projectedPoint.lon);
+    const distToSegment = getDistanceFromLatLonInKm(point.lat, point.lon, projectedLat, projectedLon);
 
     if (distToSegment < minDistanceToShape) {
       minDistanceToShape = distToSegment;
@@ -40,7 +42,6 @@ function projectPointOnSegment(p: Point, a: Point, b: Point): { projectedPoint: 
   if (L2 === 0) return { projectedPoint: a, fraction: 0 };
 
   // This is a planar projection approximation, which is okay for short distances (bus stops)
-  // For high precision GPS, we would use spherical projection, but this is sufficient for relative progress.
   let t = ((p.lat - a.lat) * (b.lat - a.lat) + (p.lon - a.lon) * (b.lon - a.lon)) / L2;
   t = Math.max(0, Math.min(1, t));
 
@@ -53,6 +54,17 @@ function projectPointOnSegment(p: Point, a: Point, b: Point): { projectedPoint: 
   };
 }
 
+export function getShapeLength(shape: [number, number][]): number {
+    let length = 0;
+    for (let i = 0; i < shape.length - 1; i++) {
+        length += getDistanceFromLatLonInKm(
+            shape[i][0], shape[i][1], 
+            shape[i+1][0], shape[i+1][1]
+        );
+    }
+    return length;
+}
+
 export function estimateETA(
   busLocation: Point,
   stopLocation: Point,
@@ -61,17 +73,31 @@ export function estimateETA(
 ): number | null {
   const busDist = getDistanceAlongRoute(busLocation, shape);
   const stopDist = getDistanceAlongRoute(stopLocation, shape);
+  
+  const totalLength = getShapeLength(shape);
+  
+  // Check if circular (start and end within 200m)
+  const isCircular = getDistanceFromLatLonInKm(
+      shape[0][0], shape[0][1],
+      shape[shape.length-1][0], shape[shape.length-1][1]
+  ) < 0.2;
 
-  // If bus is ahead of stop by a small margin, it might be passing.
-  // If bus is far ahead, it has passed.
-  // We assume linear route (A -> B).
+  let distDiff = stopDist - busDist;
 
-  if (stopDist < busDist) {
-      // Stop is behind the bus
-      return null;
+  // Buffer of 50m (0.05km) before considering it "passed"
+  if (distDiff < -0.05) {
+      if (isCircular) {
+          // If circular, assume wrap-around
+          distDiff += totalLength;
+      } else {
+          // Linear route, bus has passed
+          return null;
+      }
   }
 
-  const distDiff = stopDist - busDist; // km
+  // If within the buffer (e.g. -0.02), treat as 0 (at stop)
+  if (distDiff < 0) distDiff = 0;
+
   const timeHours = distDiff / speedKmH;
   const timeMinutes = timeHours * 60;
 

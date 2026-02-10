@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Bus, Stop } from '../lib/utils';
 import RouteTimeline from '../components/RouteTimeline';
 import RouteDirectionPicker from '../components/RouteDirectionPicker';
 import AlertsPanel from '../components/AlertsPanel';
 import { useAlertChecker } from '../hooks/useAlertChecker';
+import { useGeolocation } from '../hooks/useGeolocation';
 import RouteSearch from '../components/RouteSearch';
 import BottomSheet from '../components/BottomSheet';
 
@@ -22,15 +23,26 @@ interface RouteInfo {
 }
 
 export default function Home() {
-  const [buses, setBuses] = useState<Bus[]>([]);
+  const [buses, setBuses] = useState<Bus[]>([]); // All buses
   const [routes, setRoutes] = useState<RouteInfo[]>([]);
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null); // Default to null (no selection)
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedDirectionId, setSelectedDirectionId] = useState<'0' | '1'>('0');
   const [routeDetails, setRouteDetails] = useState<any>(null);
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
   const [activeTab, setActiveTab] = useState<'routes' | 'alerts'>('routes');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Loading States
+  const [isLoadingBuses, setIsLoadingBuses] = useState(true);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+
+  // Geolocation
+  const { latitude, longitude } = useGeolocation();
+  const userLocation = useMemo(() => 
+    (latitude && longitude) ? { lat: latitude, lng: longitude } : null,
+    [latitude, longitude]
+  );
 
   // Load Routes List
   useEffect(() => {
@@ -58,7 +70,14 @@ export default function Home() {
 
   // Fetch Route Details (Stops/Shape)
   useEffect(() => {
+    if (!selectedRouteId) {
+        setRouteDetails(null);
+        return;
+    }
+
+    setIsLoadingRoute(true);
     setRouteDetails(null);
+    
     fetch(`/data/routes/${selectedRouteId}.json`)
         .then(res => {
             if (!res.ok) throw new Error('Not found');
@@ -73,7 +92,8 @@ export default function Home() {
         .catch(err => {
             console.error('Failed to load route details', err);
             setRouteDetails(null);
-        });
+        })
+        .finally(() => setIsLoadingRoute(false));
   }, [selectedRouteId]);
 
   // Determine active stops and shape based on selection
@@ -85,38 +105,59 @@ export default function Home() {
       return routeDetails?.directions?.[selectedDirectionId]?.shape || [];
   }, [routeDetails, selectedDirectionId]);
 
-  // Fetch Live Buses
+  // Fetch Live Buses with Page Visibility
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchBuses = async () => {
+        if (document.hidden) return; // Pause if tab hidden
+
         try {
             const response = await fetch('/api/buses');
             if (!response.ok) throw new Error('API Failed');
             const data = await response.json();
 
-            if (data && Array.isArray(data.buses)) {
-                 let filtered = data.buses;
-                 if (selectedRouteId) {
-                     filtered = data.buses.filter((b: any) => 
-                        (b.routeId === selectedRouteId || b.routeShortName === selectedRouteId) &&
-                        b.directionId === selectedDirectionId
-                     );
-                 }
-                 setBuses(filtered);
+            if (isMounted && data && Array.isArray(data.buses)) {
+                 setBuses(data.buses);
             }
         } catch (err) {
             console.error('Fetch error:', err);
-            setBuses([]);
+            if (isMounted) setBuses([]);
+        } finally {
+            if (isMounted) setIsLoadingBuses(false);
         }
     };
 
     fetchBuses();
-    const interval = setInterval(fetchBuses, 10000); // 10s refresh
+    const interval = setInterval(fetchBuses, 10000); 
 
-    return () => clearInterval(interval);
-  }, [selectedRouteId, selectedDirectionId]);
+    const handleVisibilityChange = () => {
+        if (!document.hidden) fetchBuses();
+    };
 
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  // Initialize Alert Checker
+    return () => {
+        isMounted = false;
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Filter buses for display
+  const filteredBuses = useMemo(() => {
+      if (!selectedRouteId) return buses; // Show all buses if no route selected
+
+      const selectedRoute = routes.find(r => r.id === selectedRouteId);
+      if (!selectedRoute) return [];
+
+      return buses.filter(b => 
+         (b.routeId === selectedRouteId || b.routeShortName === selectedRoute.shortName) &&
+         b.directionId === selectedDirectionId
+      );
+  }, [buses, selectedRouteId, selectedDirectionId, routes]);
+
+  // Initialize Alert Checker (Pass ALL buses)
   useAlertChecker(buses, routeDetails);
 
   // Filter routes for search
@@ -128,31 +169,37 @@ export default function Home() {
      );
   }, [searchTerm, routes]);
 
-  const handleRouteSelect = (routeId: string) => {
+  const handleRouteSelect = useCallback((routeId: string) => {
       setSelectedRouteId(routeId);
       setSearchTerm('');
       setIsSearching(false);
       setSelectedStop(null);
-  };
+  }, []);
 
   return (
     <main className="relative h-screen w-full bg-stone-50 overflow-hidden">
       
-      {/* MAP LAYER - Absolute Full Screen */}
+      {/* MAP LAYER */}
       <div className="absolute inset-0 z-0">
          <MapComponent
-            buses={buses}
+            buses={filteredBuses}
             stops={currentStops}
             routeShape={currentShape}
             selectedStop={selectedStop}
             onStopSelect={setSelectedStop}
-            userLocation={null} 
+            userLocation={userLocation} 
             selectedRouteId={selectedRouteId || ''}
          />
       </div>
 
+      {/* Loading Overlay for Buses (Initial only) */}
+      {isLoadingBuses && buses.length === 0 && (
+          <div className="absolute top-4 right-4 z-[60] bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold shadow-sm animate-pulse text-amber-600">
+              Connecting to satellites...
+          </div>
+      )}
+
       {/* MOBILE UI LAYER */}
-      {/* Search Overlay */}
       <div className="absolute top-0 left-0 right-0 z-50 md:hidden p-4 pointer-events-none">
          <div className="pointer-events-auto bg-white/90 backdrop-blur-sm shadow-xl rounded-xl border border-stone-200/50">
              <RouteSearch 
@@ -180,7 +227,7 @@ export default function Home() {
          </div>
       </div>
 
-      {/* Bottom Sheet Drawer - Only show if route is selected or user is exploring */}
+      {/* Bottom Sheet Drawer */}
       <BottomSheet activeTab={activeTab} onTabChange={setActiveTab}>
          {activeTab === 'routes' ? (
              selectedRouteId ? (
@@ -193,17 +240,30 @@ export default function Home() {
                         onDirectionChange={setSelectedDirectionId}
                         routeDetails={routeDetails}
                     />
-                    <RouteTimeline
-                        stops={currentStops}
-                        buses={buses}
-                        routeShape={currentShape}
-                        selectedStop={selectedStop}
-                        onStopSelect={setSelectedStop}
-                        routeId={selectedRouteId}
-                        routeShortName={routes.find(r => r.id === selectedRouteId)?.shortName || ''}
-                        directionId={selectedDirectionId}
-                        headsign={routeDetails?.directions?.[selectedDirectionId]?.headsign || ''}
-                    />
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                        {isLoadingRoute ? (
+                            <div className="p-8 flex justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+                            </div>
+                        ) : currentStops.length > 0 ? (
+                            <RouteTimeline
+                                stops={currentStops}
+                                buses={filteredBuses}
+                                routeShape={currentShape}
+                                selectedStop={selectedStop}
+                                onStopSelect={setSelectedStop}
+                                routeId={selectedRouteId}
+                                routeShortName={routes.find(r => r.id === selectedRouteId)?.shortName || ''}
+                                directionId={selectedDirectionId}
+                                headsign={routeDetails?.directions?.[selectedDirectionId]?.headsign || ''}
+                            />
+                        ) : (
+                            <div className="p-8 text-center text-stone-400">
+                                <p className="mb-2 text-lg font-semibold">Stops data unavailable</p>
+                                <p className="text-sm">Stop list not found for this route/direction.</p>
+                            </div>
+                        )}
+                    </div>
                  </>
              ) : (
                 <div className="p-8 text-center text-stone-500">
@@ -212,14 +272,16 @@ export default function Home() {
                 </div>
              )
          ) : (
-             <AlertsPanel />
+             <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                <AlertsPanel />
+             </div>
          )}
       </BottomSheet>
 
 
       {/* DESKTOP UI LAYER */}
       
-      {/* 1. Floating Search Bar (Always Visible) */}
+      {/* 1. Floating Search Bar */}
       <div className="hidden md:block absolute top-4 left-4 z-50 w-[400px]">
           <RouteSearch 
             searchTerm={searchTerm} 
@@ -244,7 +306,7 @@ export default function Home() {
            )}
       </div>
 
-      {/* 2. Sidebar Content (Only if route selected) */}
+      {/* 2. Sidebar Content */}
       {selectedRouteId && (
         <div className="hidden md:flex absolute top-[88px] left-4 bottom-4 w-[400px] z-40 flex-col bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
             
@@ -277,10 +339,14 @@ export default function Home() {
                           routeDetails={routeDetails}
                       />
                       <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                          {currentStops.length > 0 ? (
+                          {isLoadingRoute ? (
+                              <div className="h-full flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+                              </div>
+                          ) : currentStops.length > 0 ? (
                               <RouteTimeline
                                   stops={currentStops}
-                                  buses={buses}
+                                  buses={filteredBuses}
                                   routeShape={currentShape}
                                   selectedStop={selectedStop}
                                   onStopSelect={setSelectedStop}
