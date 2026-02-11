@@ -11,7 +11,7 @@ interface Props {
 
 export default function RouteSearch({ searchTerm, onSearchChange, isMobile = false, onFocus, onClose }: Props) {
   return (
-    <div className={`relative z-30 ${isMobile ? 'shadow-lg' : 'mb-4'}`}>
+    <div className={`relative ${isMobile ? 'shadow-lg' : 'mb-4'}`}>
       <div className="relative group flex items-center gap-2">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

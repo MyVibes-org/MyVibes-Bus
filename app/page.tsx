@@ -202,8 +202,8 @@ export default function Home() {
       )}
 
       {/* MOBILE UI LAYER */}
-      <div className="absolute top-0 left-0 right-0 z-[100] md:hidden p-4 pointer-events-none">
-         <div className="pointer-events-auto bg-white/90 backdrop-blur-sm shadow-xl rounded-xl border border-stone-200/50">
+      <div className="absolute top-0 left-0 right-0 z-20 md:hidden p-4">
+         <div className="bg-white/90 backdrop-blur-sm shadow-xl rounded-xl border border-stone-200/50">
              <RouteSearch 
                 searchTerm={searchTerm} 
                 onSearchChange={(val) => {
