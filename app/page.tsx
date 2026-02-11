@@ -162,12 +162,14 @@ export default function Home() {
 
   // Filter routes for search
   const filteredRoutes = useMemo(() => {
-     if (!searchTerm) return [];
+     if (!searchTerm && !isSearching) return [];
+     if (!searchTerm && isSearching) return routes;
+     
      return routes.filter(r => 
         r.shortName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.longName.toLowerCase().includes(searchTerm.toLowerCase())
      );
-  }, [searchTerm, routes]);
+  }, [searchTerm, routes, isSearching]);
 
   const handleRouteSelect = useCallback((routeId: string) => {
       setSelectedRouteId(routeId);
@@ -200,7 +202,7 @@ export default function Home() {
       )}
 
       {/* MOBILE UI LAYER */}
-      <div className="absolute top-0 left-0 right-0 z-50 md:hidden p-4 pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 z-[100] md:hidden p-4 pointer-events-none">
          <div className="pointer-events-auto bg-white/90 backdrop-blur-sm shadow-xl rounded-xl border border-stone-200/50">
              <RouteSearch 
                 searchTerm={searchTerm} 
@@ -208,6 +210,8 @@ export default function Home() {
                     setSearchTerm(val);
                     setIsSearching(!!val);
                 }} 
+                onFocus={() => setIsSearching(true)}
+                onClose={() => setIsSearching(false)}
                 isMobile={true} 
              />
              {isSearching && filteredRoutes.length > 0 && (
