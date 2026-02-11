@@ -57,8 +57,8 @@ export default function RouteDirectionPicker({
           </span>
         </div>
 
-        {/* Direction Toggles */}
-        {routeDetails && (
+        {/* Direction Toggles - only show if both directions exist */}
+        {routeDetails && routeDetails.directions['0'] && routeDetails.directions['1'] && (
           <div className="flex bg-stone-100 p-1 rounded-lg border border-stone-200">
             <button
               className={`flex-1 py-2 px-2 text-xs rounded-md transition-all font-medium truncate ${
@@ -67,7 +67,6 @@ export default function RouteDirectionPicker({
                   : 'text-stone-500 hover:text-stone-800'
               }`}
               onClick={() => onDirectionChange('0')}
-              disabled={!routeDetails.directions['0']}
             >
               {routeDetails.directions['0']?.headsign || 'Direction 1'}
             </button>
@@ -78,9 +77,8 @@ export default function RouteDirectionPicker({
                   : 'text-stone-500 hover:text-stone-800'
               }`}
               onClick={() => onDirectionChange('1')}
-              disabled={!routeDetails.directions['1']}
             >
-               {routeDetails.directions['1']?.headsign || 'Direction 2'}
+              {routeDetails.directions['1']?.headsign || 'Direction 2'}
             </button>
           </div>
         )}
