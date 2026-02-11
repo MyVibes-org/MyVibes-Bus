@@ -60,28 +60,30 @@ export default function RouteDirectionPicker({
         {/* Direction Toggles */}
         {routeDetails && (
           <div className="flex bg-stone-100 p-1 rounded-lg border border-stone-200">
-            <button
-              className={`flex-1 py-2 px-2 text-xs rounded-md transition-all font-medium truncate ${
-                selectedDirectionId === '0'
-                  ? 'bg-white text-amber-700 shadow-sm border border-stone-100'
-                  : 'text-stone-500 hover:text-stone-800'
-              }`}
-              onClick={() => onDirectionChange('0')}
-              disabled={!routeDetails.directions['0']}
-            >
-              {routeDetails.directions['0']?.headsign || 'Direction 1'}
-            </button>
-            <button
-              className={`flex-1 py-2 px-2 text-xs rounded-md transition-all font-medium truncate ${
-                selectedDirectionId === '1'
-                  ? 'bg-white text-amber-700 shadow-sm border border-stone-100'
-                  : 'text-stone-500 hover:text-stone-800'
-              }`}
-              onClick={() => onDirectionChange('1')}
-              disabled={!routeDetails.directions['1']}
-            >
-               {routeDetails.directions['1']?.headsign || 'Direction 2'}
-            </button>
+            {routeDetails.directions['0'] && (
+              <button
+                className={`flex-1 py-2 px-2 text-xs rounded-md transition-all font-medium truncate ${
+                  selectedDirectionId === '0'
+                    ? 'bg-white text-amber-700 shadow-sm border border-stone-100'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+                onClick={() => onDirectionChange('0')}
+              >
+                {routeDetails.directions['0']?.headsign || 'Direction 1'}
+              </button>
+            )}
+            {routeDetails.directions['1'] && (
+              <button
+                className={`flex-1 py-2 px-2 text-xs rounded-md transition-all font-medium truncate ${
+                  selectedDirectionId === '1'
+                    ? 'bg-white text-amber-700 shadow-sm border border-stone-100'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+                onClick={() => onDirectionChange('1')}
+              >
+                {routeDetails.directions['1']?.headsign || 'Direction 2'}
+              </button>
+            )}
           </div>
         )}
       </div>
